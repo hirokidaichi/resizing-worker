@@ -1,7 +1,6 @@
 package main
 
 import (
-	_ "bufio"
 	"bytes"
 	"encoding/json"
 	"github.com/crowdmob/goamz/aws"
@@ -215,8 +214,26 @@ func (self *Message) Handle(id int) error {
 	return self.To.Put(toBytes, "image/json")
 }
 
+/*
+SEE ALSO : https://github.com/nfnt/resize
+*/
 func (self *Message) GetMethod() resize.InterpolationFunction {
-	return resize.Lanczos3
+	switch self.Method {
+	case "NearestNeighbor":
+		return resize.NearestNeighbor
+	case "Bilinear":
+		return resize.Bilinear
+	case "Bicubic":
+		return resize.Bicubic
+	case "MitchellNetravali":
+		return resize.MitchellNetravali
+	case "Lanczos2":
+		return resize.Lanczos2
+	case "Lanczos3":
+		return resize.Lanczos3
+	default:
+		return resize.Lanczos3
+	}
 }
 
 func (self *Message) Resize(imageBytes []byte) ([]byte, error) {
