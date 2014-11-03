@@ -1,0 +1,8 @@
+{
+    "aws.key": "YOUR KEY",
+    "aws.secret": "YOUR SECRET",
+    "aws.region": "ap-northeast-1",
+    "sqs.queues": ["thumbnail"],
+    "sqs.polling": "5s",
+    "workers": 10
+}
