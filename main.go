@@ -13,6 +13,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync"
 	"time"
 )
 
@@ -22,7 +23,7 @@ var S3CLIENT *s3.S3
 var SQSCLIENT *sqs.SQS
 
 const MAX_DEQ_COUNT = 10
-const HIDDEN_SEC = 5
+const HIDDEN_SEC = 120
 
 type Setting struct {
 	AccessKey  string   `json:"aws.key"`
@@ -98,9 +99,12 @@ func (d Dispatcher) Do(t Task, n int) int {
 }
 
 func (d Dispatcher) Stop() {
+	wg := new(sync.WaitGroup)
 	for _, v := range d {
-		v.Stop()
+		wg.Add(1)
+		v.Stop(wg)
 	}
+	wg.Wait()
 }
 
 type Worker struct {
@@ -162,10 +166,12 @@ func (self Worker) Start() {
 	}()
 
 }
-func (self Worker) Stop() {
-	// wait for stopping
-	self.stopChan <- true
-	<-self.quitChan
+func (self Worker) Stop(ws *sync.WaitGroup) {
+	go func() {
+		defer ws.Done()
+		self.stopChan <- true
+		<-self.quitChan
+	}()
 }
 
 type S3File struct {
