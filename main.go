@@ -23,7 +23,7 @@ var S3CLIENT *s3.S3
 var SQSCLIENT *sqs.SQS
 
 const MAX_DEQ_COUNT = 10
-const HIDDEN_SEC = 120
+const HIDDEN_SEC = 20
 
 type Setting struct {
 	AccessKey  string   `json:"aws.key"`
@@ -64,13 +64,11 @@ func main() {
 	REGION = setting.GetRegion()
 	S3CLIENT = s3.New(AUTH, REGION)
 	SQSCLIENT = sqs.New(AUTH, REGION)
-
 	c := Collector(setting.QueueNames, setting.GetPollingTime())
 	dispatcher := NewDispatcher(setting.Workers)
 	dispatcher.Start()
 	idx := 0
 	for v := range c {
-		// distributing like a ring buffer
 		idx = dispatcher.Do(v, idx)
 	}
 	dispatcher.Stop()
@@ -131,18 +129,18 @@ func (self Worker) Do(t Task) {
 func (self Worker) Exec(t Task) error {
 	q := t.Queue
 	m := t.Message
-	// anytime delete message
-	defer func() {
-		_, err := q.DeleteMessage(m)
-		if err != nil {
-			log.Println(err)
-		}
-	}()
+
 	message, err := ParseMessage(t.Message.Body)
 	if err != nil {
 		return err
 	}
-	return message.Handle(self.ID)
+	err = message.Handle(self.ID)
+	if err != nil {
+		return err
+	}
+	_, err = q.DeleteMessage(m)
+	log.Printf("[log] deleted %s", m.MessageId)
+	return err
 }
 
 func (self Worker) Start() {
@@ -283,7 +281,7 @@ func Collector(names []string, d time.Duration) chan Task {
 		}
 		queues[i] = q
 	}
-	res := make(chan Task, 100)
+	res := make(chan Task)
 	timer := time.Tick(1 * time.Second)
 	sigterm := make(chan os.Signal, 1)
 	signal.Notify(sigterm, os.Interrupt)
@@ -301,8 +299,10 @@ func Collector(names []string, d time.Duration) chan Task {
 						log.Printf("[info] Getting %d messages", d)
 					}
 					for _, m := range messages.Messages {
+						// copy struct
+						d := m
 						res <- Task{
-							Message: &m,
+							Message: &d,
 							Queue:   q,
 						}
 					}
