@@ -21,6 +21,9 @@ var REGION aws.Region
 var S3CLIENT *s3.S3
 var SQSCLIENT *sqs.SQS
 
+const MAX_DEQ_COUNT = 10
+const HIDDEN_SEC = 5
+
 type Setting struct {
 	AccessKey  string   `json:"aws.key"`
 	SecretKey  string   `json:"aws.secret"`
@@ -61,7 +64,7 @@ func main() {
 	S3CLIENT = s3.New(AUTH, REGION)
 	SQSCLIENT = sqs.New(AUTH, REGION)
 
-	c := Collector([]string{"thumbnail"}, setting.GetPollingTime())
+	c := Collector(setting.QueueNames, setting.GetPollingTime())
 	dispatcher := NewDispatcher(setting.Workers)
 	dispatcher.Start()
 	idx := 0
@@ -284,7 +287,7 @@ func Collector(names []string, d time.Duration) chan Task {
 			select {
 			case <-timer:
 				for _, q := range queues {
-					messages, err := q.ReceiveMessageWithVisibilityTimeout(10, 5)
+					messages, err := q.ReceiveMessageWithVisibilityTimeout(MAX_DEQ_COUNT, HIDDEN_SEC)
 					if err != nil {
 						log.Println(err)
 					}
