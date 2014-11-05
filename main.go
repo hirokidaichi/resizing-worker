@@ -42,26 +42,32 @@ type Setting struct {
 $ export AWS_ACCESS_KEY_ID=<access_key>
 $ export AWS_SECRET_ACCESS_KEY=<secret_key>
 */
-func (self Setting) GetAuth() aws.Auth {
+func (self *Setting) GetAuth() aws.Auth {
 	if self.AccessKey == "" {
 		self.AccessKey = os.Getenv("AWS_ACCESS_KEY_ID")
 	}
 	if self.SecretKey == "" {
 		self.SecretKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
 	}
+	if self.AccessKey == "" || self.SecretKey == "" {
+		log.Fatal("cannot find aws auth. please set in setting.json or in env")
+	}
 	return aws.Auth{
 		AccessKey: self.AccessKey,
 		SecretKey: self.SecretKey,
 	}
 }
-func (self Setting) GetRegion() aws.Region {
+func (self *Setting) GetRegion() aws.Region {
 	if self.Region == "" {
 		self.Region = os.Getenv("AWS_REGION")
+	}
+	if self.Region == "" {
+		log.Fatal("cannot find aws region. please set in setting.json or in env")
 	}
 	return aws.GetRegion(self.Region)
 }
 
-func (self Setting) GetPollingTime() time.Duration {
+func (self *Setting) GetPollingTime() time.Duration {
 	d, err := time.ParseDuration(self.Polling)
 	if err != nil {
 		log.Fatal(err)
@@ -82,6 +88,7 @@ func main() {
 	REGION = setting.GetRegion()
 	S3CLIENT = s3.New(AUTH, REGION)
 	SQSCLIENT = sqs.New(AUTH, REGION)
+
 	if flag.Arg(0) == "httpserver" {
 		if setting.Port == 0 {
 			setting.Port = 8080
