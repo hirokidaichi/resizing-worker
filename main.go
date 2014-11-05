@@ -38,7 +38,17 @@ type Setting struct {
 	Port      int      `json:"port"`
 }
 
+/*
+$ export AWS_ACCESS_KEY_ID=<access_key>
+$ export AWS_SECRET_ACCESS_KEY=<secret_key>
+*/
 func (self Setting) GetAuth() aws.Auth {
+	if self.AccessKey == "" {
+		self.AccessKey = os.Getenv("AWS_ACCESS_KEY_ID")
+	}
+	if self.SecretKey == "" {
+		self.SecretKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
+	}
 	return aws.Auth{
 		AccessKey: self.AccessKey,
 		SecretKey: self.SecretKey,
