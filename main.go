@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
+	"fmt"
 	"github.com/crowdmob/goamz/aws"
 	"github.com/crowdmob/goamz/s3"
 	"github.com/crowdmob/goamz/sqs"
@@ -11,6 +13,7 @@ import (
 	"image/jpeg"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
@@ -26,12 +29,13 @@ const MAX_DEQ_COUNT = 10
 const HIDDEN_SEC = 20
 
 type Setting struct {
-	AccessKey  string   `json:"aws.key"`
-	SecretKey  string   `json:"aws.secret"`
-	Region     string   `json:"aws.region"`
-	QueueNames []string `json:"sqs.queues"`
-	Polling    string   `json:"sqs.polling"`
-	Workers    int      `json:"workers"`
+	AccessKey string   `json:"aws.key"`
+	SecretKey string   `json:"aws.secret"`
+	Region    string   `json:"aws.region"`
+	Queues    []string `json:"sqs.queues"`
+	Polling   string   `json:"sqs.polling"`
+	Workers   int      `json:"workers"`
+	Port      int      `json:"port"`
 }
 
 func (self Setting) GetAuth() aws.Auth {
@@ -57,6 +61,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	flag.Parse()
 	var setting Setting
 	json.Unmarshal(file, &setting)
 
@@ -64,15 +69,63 @@ func main() {
 	REGION = setting.GetRegion()
 	S3CLIENT = s3.New(AUTH, REGION)
 	SQSCLIENT = sqs.New(AUTH, REGION)
-	c := Collector(setting.QueueNames, setting.GetPollingTime())
-	dispatcher := NewDispatcher(setting.Workers)
-	dispatcher.Start()
-	idx := 0
-	for v := range c {
-		idx = dispatcher.Do(v, idx)
+	if flag.Arg(0) == "httpserver" {
+		if setting.Port == 0 {
+			setting.Port = 8080
+		}
+		log.Println("as httpserver")
+		http.HandleFunc("/", HandleMessage)
+		http.ListenAndServe(fmt.Sprintf(":%d", setting.Port), nil)
+		return
 	}
-	dispatcher.Stop()
-	log.Println("terminated")
+
+	if flag.Arg(0) == "watcher" {
+		log.Println("as watcher..")
+		c := Collector(setting.Queues, setting.GetPollingTime())
+		dispatcher := NewDispatcher(setting.Workers)
+		dispatcher.Start()
+		idx := 0
+		for v := range c {
+			idx = dispatcher.Do(v, idx)
+		}
+		dispatcher.Stop()
+		log.Println("terminated")
+		return
+	}
+	fmt.Println(`
+usage: resizing-worker <command>
+
+the commands are:
+
+    httpserver  Work as HTTP server and receive JSON messages and process it
+    watcher     Watch SQS queues and retrieve messages and process it
+    `)
+}
+
+func HandleMessage(w http.ResponseWriter, r *http.Request) {
+	messageText, err := ReadBody(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	message, err := ParseMessage(messageText)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err = message.Handle(0); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func ReadBody(r *http.Request) (string, error) {
+	content, err := ioutil.ReadAll(r.Body)
+	r.Body.Close()
+	if err != nil {
+		return "", err
+	}
+	return string(content), nil
 }
 
 type Dispatcher []*Worker
@@ -129,18 +182,19 @@ func (self Worker) Do(t Task) {
 func (self Worker) Exec(t Task) error {
 	q := t.Queue
 	m := t.Message
-
+	defer func() {
+		_, err := q.DeleteMessage(m)
+		log.Printf("[log] deleted %s", m.MessageId)
+		if err != nil {
+			log.Println(err)
+		}
+	}()
 	message, err := ParseMessage(t.Message.Body)
 	if err != nil {
 		return err
 	}
-	err = message.Handle(self.ID)
-	if err != nil {
-		return err
-	}
-	_, err = q.DeleteMessage(m)
-	log.Printf("[log] deleted %s", m.MessageId)
-	return err
+	return message.Handle(self.ID)
+
 }
 
 func (self Worker) Start() {

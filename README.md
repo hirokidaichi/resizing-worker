@@ -7,6 +7,18 @@ an implementation of jpeg resize worker for sqs and s3
 ```
 go get github.com/hirokidaichi/resizing-worker
 ```
+
+# usage
+
+```
+usage: resizing-worker <command>
+
+the commands are:
+
+    httpserver  Work as HTTP server and receive JSON messages and process it
+    watcher     Watch SQS queues and retrieve messages and process it
+```   
+
 # setting.json
 
 ```
@@ -18,6 +30,16 @@ go get github.com/hirokidaichi/resizing-worker
     "sqs.polling": "5s",
     "workers": 10
 }
+```
+
+```
+{
+    "aws.key": "YOUR KEY",
+    "aws.secret": "YOUR SECRET",
+    "aws.region": "ap-northeast-1",
+    "port" : 8080
+}
+
 ```
 
 # sqs message format
