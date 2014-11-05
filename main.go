@@ -55,6 +55,9 @@ func (self Setting) GetAuth() aws.Auth {
 	}
 }
 func (self Setting) GetRegion() aws.Region {
+	if self.Region == "" {
+		self.Region = os.Getenv("AWS_REGION")
+	}
 	return aws.GetRegion(self.Region)
 }
 
@@ -67,14 +70,14 @@ func (self Setting) GetPollingTime() time.Duration {
 }
 
 func main() {
+	var setting Setting
 	file, err := ioutil.ReadFile("./setting.json")
 	if err != nil {
-		log.Fatal(err)
+		log.Println("./setting.json : not exists ")
+	} else {
+		json.Unmarshal(file, &setting)
 	}
 	flag.Parse()
-	var setting Setting
-	json.Unmarshal(file, &setting)
-
 	AUTH = setting.GetAuth()
 	REGION = setting.GetRegion()
 	S3CLIENT = s3.New(AUTH, REGION)
