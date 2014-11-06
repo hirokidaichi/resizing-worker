@@ -28,7 +28,7 @@ docker pull hirokidaichi/resizing-worker
 ```
 docker run -t ¥
     -e "AWS_ACCESS_KEY_ID=YOUR_ACEESS_KEY" ¥
-    -e "AWS_SECRET_ACCESS_KEY=YOUR_SECRET_KEY" ¥
+    -e "AWS_SECRET_KEY=YOUR_SECRET_KEY" ¥
     -e "AWS_REGION=REGION" ¥
     hirokidaichi/resizing-worker
 ```
