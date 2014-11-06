@@ -47,7 +47,7 @@ func (self *Setting) GetAuth() aws.Auth {
 		self.AccessKey = os.Getenv("AWS_ACCESS_KEY_ID")
 	}
 	if self.SecretKey == "" {
-		self.SecretKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
+		self.SecretKey = os.Getenv("AWS_SECRET_KEY")
 	}
 	if self.AccessKey == "" || self.SecretKey == "" {
 		log.Fatal("cannot find aws auth. please set in setting.json or in env")
