@@ -11,6 +11,7 @@ import (
 	"github.com/nfnt/resize"
 	"image"
 	"image/jpeg"
+	_ "image/png"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -320,6 +321,7 @@ func (self *Message) GetMethod() resize.InterpolationFunction {
 func (self *Message) Resize(imageBytes []byte) ([]byte, error) {
 	img, _, err := image.Decode(bytes.NewReader(imageBytes))
 	if err != nil {
+		println("here")
 		return nil, err
 	}
 	m := resize.Resize(self.Width, self.Height, img, self.GetMethod())

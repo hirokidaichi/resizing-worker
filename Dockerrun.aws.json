@@ -1,0 +1,6 @@
+{
+  "AWSEBDockerrunVersion": "1",
+  "Image" : { "Name" : "hirokidaichi/resizing-worker:latest" },
+  "Ports" : [{ "ContainerPort": "8080" }],
+  "Logging": "/var/log/applog"
+}
